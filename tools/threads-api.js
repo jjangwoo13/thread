@@ -25,7 +25,9 @@ const REPORT = path.join(ROOT, '인사이트기록.md');
 const HISTORY = path.join(__dirname, 'insights-log.json');
 const LOG = path.join(__dirname, 'threads-auto.log');
 
-const config = JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
+// 메모장·PowerShell이 붙이는 BOM 제거
+const readJson = f => JSON.parse(fs.readFileSync(f, 'utf8').replace(/^\uFEFF/, ''));
+const config = readJson(CONFIG);
 
 function log(msg) {
   const line = `[${stamp(new Date())}] ${msg}`;
@@ -118,7 +120,7 @@ async function insights() {
     posts.push({ id: p.id, date: p.timestamp.slice(0, 10), text: (p.text || '').split('\n')[0], permalink: p.permalink, ...(await mediaMetrics(p.id)) });
   }
 
-  const history = fs.existsSync(HISTORY) ? JSON.parse(fs.readFileSync(HISTORY, 'utf8')) : [];
+  const history = fs.existsSync(HISTORY) ? readJson(HISTORY) : [];
   const prev = history[history.length - 1];
   const now = stamp(new Date());
   history.push({ at: now, followers, posts });
@@ -142,7 +144,7 @@ async function insights() {
 
 // ─── 예약 게시 ─────────────────────────────────────────────────────────
 function readQueue() {
-  return fs.existsSync(QUEUE) ? JSON.parse(fs.readFileSync(QUEUE, 'utf8')) : [];
+  return fs.existsSync(QUEUE) ? readJson(QUEUE) : [];
 }
 
 function parseAt(at) {

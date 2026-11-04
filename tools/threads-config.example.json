@@ -1,0 +1,6 @@
+﻿{
+  "appSecret": "앱 시크릿 코드(단기 토큰을 장기로 바꿀 때만 필요)",
+  "accessToken": "장기 액세스 토큰(60일짜리)을 여기에",
+  "expiresAt": "2027-01-03T00:00:00.000Z",
+  "userId": "node tools/threads-api.js me 실행하면 자동으로 채워짐"
+}

@@ -105,6 +105,9 @@ async function insights() {
   await refreshIfNeeded();
   const u = await api('GET', '/me/threads_insights', { metric: 'followers_count' });
   const followers = u.data[0]?.total_value?.value ?? 0;
+  // 링크 클릭(기본 범위: 어제~오늘) — 블로그로 넘어간 수
+  const ck = await api('GET', '/me/threads_insights', { metric: 'clicks' });
+  const clicks = (ck.data[0]?.link_total_values || []).filter(c => c.value > 0);
 
   // 반하리 리포스트(REPOST_FACADE)가 목록을 채우므로 넘기면서 내가 쓴 글만 20개까지 모음
   const mine = [];
@@ -123,7 +126,7 @@ async function insights() {
   const history = fs.existsSync(HISTORY) ? readJson(HISTORY) : [];
   const prev = history[history.length - 1];
   const now = stamp(new Date());
-  history.push({ at: now, followers, posts });
+  history.push({ at: now, followers, clicks, posts });
   fs.writeFileSync(HISTORY, JSON.stringify(history, null, 2) + '\n');
 
   const diff = prev ? followers - prev.followers : null;
@@ -132,6 +135,8 @@ async function insights() {
     `## ${now}`,
     '',
     `팔로워 **${followers}명**` + (diff === null ? '' : ` (직전 기록 ${prev.at} 대비 ${diff >= 0 ? '+' : ''}${diff})`),
+    '',
+    `링크 클릭(어제~오늘): ` + (clicks.length ? clicks.map(c => `${c.link_url} ${c.value}회`).join(', ') : '없음'),
     '',
     '| 올린 날 | 첫 줄 | 조회 | 하트 | 답글 | 리포스트 | 인용 |',
     '|---|---|---|---|---|---|---|',

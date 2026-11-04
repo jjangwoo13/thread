@@ -104,9 +104,17 @@ async function insights() {
   const u = await api('GET', '/me/threads_insights', { metric: 'followers_count' });
   const followers = u.data[0]?.total_value?.value ?? 0;
 
-  const list = await api('GET', '/me/threads', { fields: 'id,text,timestamp,permalink', limit: 20 });
+  // 반하리 리포스트(REPOST_FACADE)가 목록을 채우므로 넘기면서 내가 쓴 글만 20개까지 모음
+  const mine = [];
+  let page = await api('GET', '/me/threads', { fields: 'id,media_type,text,timestamp,permalink', limit: 100 });
+  for (let i = 0; i < 10; i++) {
+    mine.push(...page.data.filter(p => p.media_type !== 'REPOST_FACADE'));
+    const after = page.paging?.cursors?.after;
+    if (mine.length >= 20 || !page.paging?.next || !after) break;
+    page = await api('GET', '/me/threads', { fields: 'id,media_type,text,timestamp,permalink', limit: 100, after });
+  }
   const posts = [];
-  for (const p of list.data) {
+  for (const p of mine.slice(0, 20)) {
     posts.push({ id: p.id, date: p.timestamp.slice(0, 10), text: (p.text || '').split('\n')[0], permalink: p.permalink, ...(await mediaMetrics(p.id)) });
   }
 
@@ -125,7 +133,7 @@ async function insights() {
     '',
     '| 올린 날 | 첫 줄 | 조회 | 하트 | 답글 | 리포스트 | 인용 |',
     '|---|---|---|---|---|---|---|',
-    ...posts.map(p => `| ${p.date} | ${p.text.replace(/\|/g, '/').slice(0, 30)} | ${p.views ?? '-'} | ${p.likes} | ${p.replies} | ${p.reposts} | ${p.quotes} |`),
+    ...posts.map(p => `| ${p.date} | ${Array.from(p.text.replace(/\|/g, '/')).slice(0, 30).join('')} | ${p.views ?? '-'} | ${p.likes} | ${p.replies} | ${p.reposts} | ${p.quotes} |`),
   ];
   if (!fs.existsSync(REPORT)) fs.writeFileSync(REPORT, '# Threads 인사이트 기록\n\n`node tools/threads-api.js insights`가 매일 23:50 자동으로 추가함.\n');
   fs.appendFileSync(REPORT, lines.join('\n') + '\n');

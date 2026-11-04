@@ -154,6 +154,12 @@ function parseAt(at) {
   return new Date(y, mo - 1, da, h, mi);
 }
 
+async function publish(params) {
+  const c = await api('POST', `/${config.userId}/threads`, params);
+  await new Promise(r => setTimeout(r, 30000)); // 문서 권장: 컨테이너 만든 뒤 평균 30초 대기
+  return api('POST', `/${config.userId}/threads_publish`, { creation_id: c.id });
+}
+
 async function post(dry) {
   const queue = readQueue();
   const due = queue.filter(q => q.status === '대기' && parseAt(q.at) <= new Date());
@@ -163,12 +169,16 @@ async function post(dry) {
     try {
       const params = { media_type: 'TEXT', text: q.text };
       if (q.topic_tag) params.topic_tag = q.topic_tag;
-      const c = await api('POST', `/${config.userId}/threads`, params);
-      await new Promise(r => setTimeout(r, 30000)); // 문서 권장: 컨테이너 만든 뒤 평균 30초 대기
-      const p = await api('POST', `/${config.userId}/threads_publish`, { creation_id: c.id });
+      const p = await publish(params);
       const info = await api('GET', `/${p.id}`, { fields: 'permalink' });
       Object.assign(q, { status: '게시됨', postedAt: stamp(new Date()), id: p.id, permalink: info.permalink });
       log(`게시 — ${q.text.split('\n')[0]} ${info.permalink}`);
+      // 첫 댓글(블로그 링크 등) — reply 필드가 있으면 내 글에 답글로 단다
+      if (q.reply) {
+        const r = await publish({ media_type: 'TEXT', text: q.reply, reply_to_id: p.id });
+        q.replyId = r.id;
+        log(`첫 댓글 — ${q.reply.split('\n')[0]}`);
+      }
     } catch (e) {
       Object.assign(q, { status: '실패', error: e.message });
       log(`게시 실패 — ${q.text.split('\n')[0]}: ${e.message}`);
